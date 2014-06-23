@@ -6,6 +6,7 @@ import re
 import time
 
 import flask
+import requests
 
 from docker_registry.core import compat
 from docker_registry.core import exceptions
@@ -229,8 +230,152 @@ def _delete_tag(namespace, repository, tag):
     return toolkit.response()
 
 
-@app.route('/v1/repositories/<path:repository>/', methods=['DELETE'])
-@app.route('/v1/repositories/<path:repository>/tags', methods=['DELETE'])
+def _import_repository(src_image, namespace, repository):
+    """import a repository's tag from a given source index and place the
+    information at the given target.
+    """
+    src_index, src_repository = _resolve_repository_name(src_image)
+    headers = None
+
+    # check if src_index starts with a scheme; mandatory for requests library
+    if not src_index.startswith('http'):
+        src_index = 'http://' + src_index
+
+    images_resp = requests.get(
+        '{0}/v1/repositories/{1}/images'.format(
+            src_index,
+            src_repository
+        ),
+        # this is required if we are authenticating against the public index
+        # because we need the token returned in the header to retrieve images
+        headers={'X-Docker-Token': 'true'}
+    )
+    tags_resp = requests.get('{0}/v1/repositories/{1}/tags'.format(
+        src_index,
+        src_repository))
+
+    if images_resp and tags_resp:
+        # import images
+        images = json.loads(images_resp.content)
+        if src_index == toolkit.public_index_url():
+            # DockerHub requires a token even on unauthenticated requests
+            token = images_resp.headers['x-docker-token']
+            headers = {'Authorization': 'Token {0}'.format(token)}
+            image_list = []
+            for image in images:
+                image_list.append({'id': image['id']})
+            images = image_list
+            logger.debug('images={0}'.format(images))
+        for image in images:
+            logger.debug("Downloading image {0} from {1}".format(
+                image['id'],
+                # docker images are stored on their CDN
+                src_index)
+            )
+            if src_index == toolkit.public_index_url():
+                _import_image(toolkit.public_cdn_url(), image['id'], headers)
+            else:
+                _import_image(src_index, image['id'], headers)
+        store.put_content(store.index_images_path(namespace, repository),
+                          json.dumps(images))
+        # import tags
+        tags = json.loads(tags_resp.content)
+        if src_index == toolkit.public_index_url():
+            tags = {}
+            for tag in json.loads(tags_resp.content):
+                # public index shortens the image ID on /tags, so we need the
+                # fully-qualified name
+                for image in images:
+                    if image['id'].startswith(tag['layer']):
+                        tag['layer'] = image['id']
+                tags[tag['name']] = tag['layer']
+                logger.debug('tag={0}'.format(tag))
+        logger.debug('tags={0}'.format(tags))
+        for tag, image in tags.items():
+            logger.debug("Downloading tag {0} from {1}".format(tag, src_index))
+            store.put_content(store.tag_path(namespace, repository, tag),
+                              image)
+    else:
+        raise Exception("did not receive response from remote")
+
+
+def _resolve_repository_name(image_name):
+    """this code mimics the logic of the docker client as of commit
+    dotcloud/docker@4a3b36f44309ff8e650be2cff74f3ec436353298
+    see registry/registry.go#L117
+    """
+    logger.debug("[_resolve_repository_name] "
+                 "image_name={0}".format(image_name))
+
+    nameparts = image_name.split('/', 1)
+    if len(nameparts) == 1 or \
+            not '.' in nameparts[0] and \
+            not ':' in nameparts[0] and  \
+            nameparts[0] != 'localhost':
+        # this is a docker index repository (e.g. samalba/hipache or ubuntu)
+        _validate_repository_name(image_name)
+        return toolkit.public_index_url(), image_name
+    hostname = nameparts[0]
+    repo_name = nameparts[1]
+    if 'index.docker.io' in hostname:
+        raise ValueError('Invalid repository name, try {0} '
+                         'instead'.format(image_name))
+    _validate_repository_name(repo_name)
+
+    return hostname, repo_name
+
+
+def _validate_repository_name(repository_name):
+    """this code mimics the logic of the docker client as of commit
+    dotcloud/docker@4a3b36f44309ff8e650be2cff74f3ec436353298
+    see registry/registry.go#L92
+    """
+    logger.debug("[_validate_repository_name] "
+                 "repository_name={0}".format(repository_name))
+    nameParts = repository_name.split('/', 2)
+    if len(nameParts) < 2:
+        namespace = "library"
+        name = nameParts[0]
+    else:
+        namespace = nameParts[0]
+        name = nameParts[1]
+    validNamespace = re.compile('^([a-z0-9_]{4,30})$')
+    if not validNamespace.match(namespace):
+        raise ValueError("Invalid namespace name ({0}), only [a-z0-9_] are "
+                         "allowed, size between 4 and 30".format(namespace))
+    validRepo = re.compile('^([a-z0-9-_.]+)$')
+    if not validRepo.match(name):
+        raise ValueError("Invalid repository name ({0}), only [a-z0-9-_.] are "
+                         "allowed".format(name))
+
+
+def _import_image(source, image, headers=None):
+    # do nothing if the image already exists
+    if store.exists(store.image_layer_path(image)):
+        logger.debug('image {0} already exists, skipping'.format(image))
+        return
+
+    # import layers
+    resp = requests.get('{0}/v1/images/{1}/layer'.format(source, image),
+                        headers=headers)
+    if resp:
+        store.put_content(store.image_layer_path(image), resp.content)
+    # import JSON
+    resp = requests.get('{0}/v1/images/{1}/json'.format(source, image),
+                        headers=headers)
+    if resp:
+        store.put_content(store.image_json_path(image), resp.content)
+    # import ancestry
+    resp = requests.get('{0}/v1/images/{1}/ancestry'.format(source, image),
+                        headers=headers)
+    if resp:
+        store.put_content(store.image_ancestry_path(image), resp.content)
+
+
+@app.route('/v1/repositories/<path:repository>/',
+           methods=['DELETE', 'POST'])
+@app.route('/v1/repositories/<path:repository>/tags',
+           methods=['DELETE', 'POST'])
 @toolkit.parse_repository_name
 @toolkit.requires_auth
 def delete_repository(namespace, repository):
@@ -248,18 +393,30 @@ def delete_repository(namespace, repository):
     """
     logger.debug("[delete_repository] namespace={0}; repository={1}".format(
                  namespace, repository))
-    try:
-        for tag_name, tag_content in get_tags(
-                namespace=namespace, repository=repository):
-            delete_tag(
-                namespace=namespace, repository=repository, tag=tag_name)
-        # TODO(wking): remove images, but may need refcounting
-        store.remove(store.repository_path(
-            namespace=namespace, repository=repository))
-    except exceptions.FileNotFoundError:
-        return toolkit.api_error('Repository not found', 404)
+
+    src_image = flask.request.form.get('src')
+    if flask.request.method == 'POST':
+        try:
+            _import_repository(
+                src_image=src_image,
+                namespace=namespace,
+                repository=repository,
+            )
+        except Exception as e:
+            return toolkit.api_error(e, 500)
     else:
-        sender = flask.current_app._get_current_object()
-        signals.repository_deleted.send(
-            sender, namespace=namespace, repository=repository)
+        try:
+            for tag_name, tag_content in get_tags(
+                    namespace=namespace, repository=repository):
+                delete_tag(
+                    namespace=namespace, repository=repository, tag=tag_name)
+            # TODO(wking): remove images, but may need refcounting
+            store.remove(store.repository_path(
+                namespace=namespace, repository=repository))
+        except exceptions.FileNotFoundError:
+            return toolkit.api_error('Repository not found', 404)
+        else:
+            sender = flask.current_app._get_current_object()
+            signals.repository_deleted.send(
+                sender, namespace=namespace, repository=repository)
     return toolkit.response()
