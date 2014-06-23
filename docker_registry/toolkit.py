@@ -292,6 +292,14 @@ def get_repository():
     return (parts[0], parts[1])
 
 
+def public_index_url():
+    return 'https://registry.hub.docker.com'
+
+
+def public_cdn_url():
+    return 'https://cdn-registry-1.docker.io'
+
+
 def get_endpoints(overcfg=None):
     registry_endpoints = (overcfg or cfg).registry_endpoints
     if not registry_endpoints:
