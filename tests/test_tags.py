@@ -234,12 +234,54 @@ class TestTags(base.TestCase):
             [{"id": "cafebabe0146"}]
         )
 
+    @mock.patch('requests.get', mock_requests_get_private_registry)
+    def test_import_repository_tag_from_private_registry(self):
+        data = {
+            'src': 'example.com/othernamespace/test:latest',
+        }
+        resp = self.http_client.post('/v1/repositories/testing3/test/tags',
+                                     data=data)
+        self.assertEqual(resp.status_code, 200)
+        # test that the images were imported
+        resp = self.http_client.get('/v1/images/cafebabe0146/layer')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            resp.data,
+            "abcdef0123456789xxxxxx=-//"
+        )
+        resp = self.http_client.get('/v1/images/cafebabe0146/json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            resp.data,
+            '{"id": "cafebabe0146","created":"2014-02-03T16:47:06.615279788Z"}'
+        )
+        resp = self.http_client.get('/v1/images/cafebabe0146/ancestry')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            resp.data,
+            '["cafebabe0146"]'
+        )
+        # test that the tags were imported
+        resp = self.http_client.get('/v1/repositories/testing3/test/tags')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            json.loads(resp.data),
+            {"latest": "cafebabe0146"}
+        )
+        # test that index images were imported
+        resp = self.http_client.get('/v1/repositories/testing3/test/images')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            json.loads(resp.data),
+            [{"id": "cafebabe0146"}]
+        )
+
     @mock.patch('requests.get', mock_requests_get_public_registry)
     def test_import_repository_from_public_index(self):
         data = {
             'src': 'testing3/test',
         }
-        resp = self.http_client.post('/v1/repositories/testing3/test/tags',
+        resp = self.http_client.post('/v1/repositories/testing4/test/tags',
                                      data=data)
         self.assertEqual(resp.status_code, 200)
         # test that the images were imported
@@ -262,14 +304,56 @@ class TestTags(base.TestCase):
             '["asdfqwerty"]'
         )
         # test that the tags were imported
-        resp = self.http_client.get('/v1/repositories/testing3/test/tags')
+        resp = self.http_client.get('/v1/repositories/testing4/test/tags')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             json.loads(resp.data),
             {"latest": "asdfqwerty", "0.1.2": "asdfqwerty"}
         )
         # test that index images were imported
-        resp = self.http_client.get('/v1/repositories/testing3/test/images')
+        resp = self.http_client.get('/v1/repositories/testing4/test/images')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            json.loads(resp.data),
+            [{"id": "asdfqwerty"}]
+        )
+
+    @mock.patch('requests.get', mock_requests_get_public_registry)
+    def test_import_repository_tag_from_public_index(self):
+        data = {
+            'src': 'testing3/test:latest',
+        }
+        resp = self.http_client.post('/v1/repositories/testing5/test/tags',
+                                     data=data)
+        self.assertEqual(resp.status_code, 200)
+        # test that the images were imported
+        resp = self.http_client.get('/v1/images/asdfqwerty/layer')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            resp.data,
+            "abcdef0123456789xxxxxx=-//"
+        )
+        resp = self.http_client.get('/v1/images/asdfqwerty/json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            resp.data,
+            '{"id": "asdfqwerty","created":"2014-02-03T16:47:06.615279788Z"}'
+        )
+        resp = self.http_client.get('/v1/images/asdfqwerty/ancestry')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            resp.data,
+            '["asdfqwerty"]'
+        )
+        # test that the tags were imported
+        resp = self.http_client.get('/v1/repositories/testing5/test/tags')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            json.loads(resp.data),
+            {"latest": "asdfqwerty"}
+        )
+        # test that index images were imported
+        resp = self.http_client.get('/v1/repositories/testing5/test/images')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             json.loads(resp.data),
