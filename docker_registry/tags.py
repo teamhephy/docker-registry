@@ -232,6 +232,13 @@ def _import_repository(src_image, namespace, repository):
     """import a repository's tag from a given source index and place the
     information at the given target.
     """
+    # strip tag from src_image if present
+    src_tag = None
+    if ':' in src_image:
+        if '/' not in src_image[src_image.rfind(':') + 1:]:
+            src_tag = src_image[src_image.rfind(':') + 1:]
+            src_image = src_image[:src_image.rfind(':')]
+
     src_index, src_repository = _resolve_repository_name(src_image)
     headers = None
 
@@ -239,6 +246,10 @@ def _import_repository(src_image, namespace, repository):
     if not src_index.startswith('http'):
         src_index = 'http://' + src_index
 
+    tags_url = '{0}/v1/repositories/{1}/tags'.format(
+        src_index,
+        src_repository)
+    tags_resp = requests.get(tags_url)
     images_resp = requests.get(
         '{0}/v1/repositories/{1}/images'.format(
             src_index,
@@ -248,46 +259,54 @@ def _import_repository(src_image, namespace, repository):
         # because we need the token returned in the header to retrieve images
         headers={'X-Docker-Token': 'true'}
     )
-    tags_resp = requests.get('{0}/v1/repositories/{1}/tags'.format(
-        src_index,
-        src_repository))
 
     if images_resp and tags_resp:
         # import images
         images = json.loads(images_resp.content)
+        tags = json.loads(tags_resp.content)
+        if src_index == toolkit.public_index_url():
+            tags = _get_public_index_tags(tags_resp, images)
+
         if src_index == toolkit.public_index_url():
             # DockerHub requires a token even on unauthenticated requests
             token = images_resp.headers['x-docker-token']
             headers = {'Authorization': 'Token {0}'.format(token)}
+
+        if src_tag is not None:
+            tags = {src_tag: tags[src_tag]}
+            # retrieve ancestry from the tag's parent image
+            if src_index == toolkit.public_index_url():
+                req_url = toolkit.public_cdn_url()
+            else:
+                req_url = src_index
+            images = [{'id': image} for image in json.loads(
+                requests.get(
+                    '{0}/v1/images/{1}/ancestry'.format(
+                        req_url,
+                        tags[src_tag]),
+                        headers=headers
+                ).content
+            )]
+
+        if src_index == toolkit.public_index_url():
             image_list = []
             for image in images:
                 image_list.append({'id': image['id']})
             images = image_list
-            logger.debug('images={0}'.format(images))
+        logger.debug('images={0}'.format(images))
         for image in images:
             logger.debug("Downloading image {0} from {1}".format(
                 image['id'],
-                # docker images are stored on their CDN
                 src_index)
             )
             if src_index == toolkit.public_index_url():
+                # docker images are stored on the CDN
                 _import_image(toolkit.public_cdn_url(), image['id'], headers)
             else:
                 _import_image(src_index, image['id'], headers)
         store.put_content(store.index_images_path(namespace, repository),
                           json.dumps(images))
         # import tags
-        tags = json.loads(tags_resp.content)
-        if src_index == toolkit.public_index_url():
-            tags = {}
-            for tag in json.loads(tags_resp.content):
-                # public index shortens the image ID on /tags, so we need the
-                # fully-qualified name
-                for image in images:
-                    if image['id'].startswith(tag['layer']):
-                        tag['layer'] = image['id']
-                tags[tag['name']] = tag['layer']
-                logger.debug('tag={0}'.format(tag))
         logger.debug('tags={0}'.format(tags))
         for tag, image in tags.items():
             logger.debug("Downloading tag {0} from {1}".format(tag, src_index))
@@ -295,6 +314,18 @@ def _import_repository(src_image, namespace, repository):
                               image)
     else:
         raise Exception("did not receive response from remote")
+
+
+def _get_public_index_tags(tags_resp, images):
+    tags = {}
+    for tag in json.loads(tags_resp.content):
+        # public index shortens the image ID on /tags, so we need the
+        # fully-qualified name
+        for image in images:
+            if image['id'].startswith(tag['layer']):
+                tag['layer'] = image['id']
+            tags[tag['name']] = tag['layer']
+    return tags
 
 
 def _resolve_repository_name(image_name):
