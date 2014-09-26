@@ -8,18 +8,18 @@ except ImportError:
 
 import sys
 
+ver = sys.version_info
+
 # XXX as ugly as this looks, namespaces break terribly otherwise
-# import docker_registry.lib as lib
-execfile('./docker_registry/server/__init__.py')
+filename = './docker_registry/server/__init__.py'
+exec(compile(open(filename, 'rb').read(), filename, 'exec'))
 
 requirements_txt = open('./requirements/main.txt')
 requirements = [line for line in requirements_txt]
 
-ver = sys.version_info
-
 if ver[0] == 2:
     # Python 2 requires lzma backport
-    requirements.insert(0, 'backports.lzma>=0.0.2')
+    requirements.insert(0, 'backports.lzma>=0.0.2,!=0.0.4')
     if ver[1] <= 6:
         # Python 2.6 requires additional libraries
         requirements.insert(0, 'argparse>=1.2.1')
@@ -79,6 +79,7 @@ setuptools.setup(
     install_requires=requirements,
     tests_require=open('./requirements/test.txt').read(),
     extras_require={
-        'bugsnag': ['bugsnag==2.0.1']
+        'bugsnag': ['bugsnag>=2.0,<2.1'],
+        'newrelic': ['newrelic>=2.22,<2.23'],
     }
 )
