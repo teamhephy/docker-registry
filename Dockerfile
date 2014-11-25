@@ -6,30 +6,35 @@
 # TO_RUN:         docker run -p 5000:5000 registry
 
 # Latest Ubuntu LTS
-from    ubuntu:14.04
+FROM ubuntu:14.04
 
 # Update
-run apt-get update
-run apt-get -y upgrade
-
+RUN apt-get update \
 # Install pip
-run apt-get -y install python-pip
+    && apt-get install -y \
+        python-pip \
+# Install deps for backports.lmza (python2 requires it)
+        python-dev \
+        liblzma-dev \
+        libevent1-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install deps for backports.lzma (python2 requires it)
-run apt-get -y install python-dev liblzma-dev libevent1-dev
-
-add . /docker-registry
-add ./config/boto.cfg /etc/boto.cfg
+COPY . /docker-registry
+COPY ./config/boto.cfg /etc/boto.cfg
 
 # Install core
-run pip install /docker-registry/depends/docker-registry-core
+RUN pip install /docker-registry/depends/docker-registry-core
 
 # Install registry
-run pip install file:///docker-registry#egg=docker-registry[bugsnag,newrelic,cors]
+RUN pip install file:///docker-registry#egg=docker-registry[bugsnag,newrelic,cors]
 
-env DOCKER_REGISTRY_CONFIG /docker-registry/config/config_sample.yml
-env SETTINGS_FLAVOR dev
+RUN patch \
+ $(python -c 'import boto; import os; print os.path.dirname(boto.__file__)')/connection.py \
+ < /docker-registry/contrib/boto_header_patch.diff
 
-expose 5000
+ENV DOCKER_REGISTRY_CONFIG /docker-registry/config/config_sample.yml
+ENV SETTINGS_FLAVOR dev
 
-cmd exec docker-registry
+EXPOSE 5000
+
+CMD ["docker-registry"]
