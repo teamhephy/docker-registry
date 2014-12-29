@@ -248,7 +248,7 @@ def _import_repository(src_image, namespace, repository):
             src_tag = src_image[src_image.rfind(':') + 1:]
             src_image = src_image[:src_image.rfind(':')]
 
-    src_index, src_repository = _resolve_repository_name(src_image)
+    src_index, src_repository = toolkit.resolve_repository_name(src_image)
     headers = None
 
     # check if src_index starts with a scheme; mandatory for requests library
@@ -335,56 +335,6 @@ def _get_public_index_tags(tags_resp, images):
                 tag['layer'] = image['id']
             tags[tag['name']] = tag['layer']
     return tags
-
-
-def _resolve_repository_name(image_name):
-    """this code mimics the logic of the docker client as of commit
-    dotcloud/docker@4a3b36f44309ff8e650be2cff74f3ec436353298
-    see registry/registry.go#L117
-    """
-    logger.debug("[_resolve_repository_name] "
-                 "image_name={0}".format(image_name))
-
-    nameparts = image_name.split('/', 1)
-    if len(nameparts) == 1 or \
-            not '.' in nameparts[0] and \
-            not ':' in nameparts[0] and  \
-            nameparts[0] != 'localhost':
-        # this is a docker index repository (e.g. samalba/hipache or ubuntu)
-        _validate_repository_name(image_name)
-        return toolkit.public_index_url(), image_name
-    hostname = nameparts[0]
-    repo_name = nameparts[1]
-    if 'index.docker.io' in hostname:
-        raise ValueError('Invalid repository name, try {0} '
-                         'instead'.format(image_name))
-    _validate_repository_name(repo_name)
-
-    return hostname, repo_name
-
-
-def _validate_repository_name(repository_name):
-    """this code mimics the logic of the docker client as of commit
-    dotcloud/docker@4a3b36f44309ff8e650be2cff74f3ec436353298
-    see registry/registry.go#L92
-    """
-    logger.debug("[_validate_repository_name] "
-                 "repository_name={0}".format(repository_name))
-    nameParts = repository_name.split('/', 2)
-    if len(nameParts) < 2:
-        namespace = "library"
-        name = nameParts[0]
-    else:
-        namespace = nameParts[0]
-        name = nameParts[1]
-    validNamespace = re.compile('^([a-z0-9_]{4,30})$')
-    if not validNamespace.match(namespace):
-        raise ValueError("Invalid namespace name ({0}), only [a-z0-9_] are "
-                         "allowed, size between 4 and 30".format(namespace))
-    validRepo = re.compile('^([a-z0-9-_.]+)$')
-    if not validRepo.match(name):
-        raise ValueError("Invalid repository name ({0}), only [a-z0-9-_.] are "
-                         "allowed".format(name))
 
 
 def _import_image(source, image, headers=None):

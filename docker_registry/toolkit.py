@@ -354,6 +354,62 @@ def public_cdn_url():
     return 'https://cdn-registry-1.docker.io'
 
 
+def resolve_repository_name(image_name):
+    """this code mimics the logic of the docker client as of commit
+    dotcloud/docker@4a3b36f44309ff8e650be2cff74f3ec436353298
+    see registry/registry.go#L117
+    """
+    logger.debug("[_resolve_repository_name] "
+                 "image_name={0}".format(image_name))
+
+    nameparts = image_name.split('/', 1)
+    # FIXME: improve hostname/image parse logic
+    if '://' in image_name:
+        tmp = image_name.split('://')
+        nameparts = tmp[1].split('/', 1)
+        # tack protocol back on
+        nameparts[0] = '{0}://{1}'.format(tmp[0], nameparts[0])
+    if len(nameparts) == 1 or \
+            not '.' in nameparts[0] and \
+            not ':' in nameparts[0] and  \
+            nameparts[0] != 'localhost':
+        # this is a docker index repository (e.g. samalba/hipache or ubuntu)
+        validate_repository_name(image_name)
+        return public_index_url(), image_name
+    hostname = nameparts[0]
+    repo_name = nameparts[1]
+    if 'index.docker.io' in hostname:
+        raise ValueError('Invalid repository name, try {0} '
+                         'instead'.format(image_name))
+    validate_repository_name(repo_name)
+
+    return hostname, repo_name
+
+
+def validate_repository_name(repository_name):
+    """this code mimics the logic of the docker client as of commit
+    dotcloud/docker@4a3b36f44309ff8e650be2cff74f3ec436353298
+    see registry/registry.go#L92
+    """
+    logger.debug("[_validate_repository_name] "
+                 "repository_name={0}".format(repository_name))
+    nameParts = repository_name.split('/', 2)
+    if len(nameParts) < 2:
+        namespace = "library"
+        name = nameParts[0]
+    else:
+        namespace = nameParts[0]
+        name = nameParts[1]
+    validNamespace = re.compile('^([a-z0-9_]{4,30})$')
+    if not validNamespace.match(namespace):
+        raise ValueError("Invalid namespace name ({0}), only [a-z0-9_] are "
+                         "allowed, size between 4 and 30".format(namespace))
+    validRepo = re.compile('^([a-z0-9-_.]+)$')
+    if not validRepo.match(name):
+        raise ValueError("Invalid repository name ({0}), only [a-z0-9-_.] are "
+                         "allowed".format(name))
+
+
 def get_endpoints(overcfg=None):
     registry_endpoints = (overcfg or cfg).registry_endpoints
     if not registry_endpoints:
