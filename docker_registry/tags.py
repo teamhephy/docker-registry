@@ -236,9 +236,7 @@ def _delete_tag(namespace, repository, tag):
 
 
 def _import_repository(src_image, namespace, repository):
-    """import a repository's tag from a given source index and place the
-    information at the given target.
-    """
+    """import a repository's tag from a given source index."""
     # strip tag from src_image if present
     src_tag = None
     if ':' in src_image:
@@ -287,11 +285,10 @@ def _import_repository(src_image, namespace, repository):
             else:
                 req_url = src_index
             images = [{'id': image} for image in json.loads(
-                requests.get(
-                    '{0}/v1/images/{1}/ancestry'.format(
-                        req_url,
-                        tags[src_tag]),
-                        headers=headers
+                requests.get('{0}/v1/images/{1}/ancestry'.format(
+                    req_url,
+                    tags[src_tag]),
+                    headers=headers
                 ).content
             )]
 
