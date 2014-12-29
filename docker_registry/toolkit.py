@@ -355,9 +355,10 @@ def public_cdn_url():
 
 
 def resolve_repository_name(image_name):
-    """this code mimics the logic of the docker client as of commit
-    dotcloud/docker@4a3b36f44309ff8e650be2cff74f3ec436353298
-    see registry/registry.go#L117
+    """this code mimics the logic of the docker client.
+
+    See dotcloud/docker@4a3b36f44309ff8e650be2cff74f3ec436353298
+    See registry/registry.go#L117
     """
     logger.debug("[_resolve_repository_name] "
                  "image_name={0}".format(image_name))
@@ -369,10 +370,10 @@ def resolve_repository_name(image_name):
         nameparts = tmp[1].split('/', 1)
         # tack protocol back on
         nameparts[0] = '{0}://{1}'.format(tmp[0], nameparts[0])
-    if len(nameparts) == 1 or \
-            not '.' in nameparts[0] and \
-            not ':' in nameparts[0] and  \
-            nameparts[0] != 'localhost':
+    if (len(nameparts) == 1 or
+            '.' not in nameparts[0] and
+            ':' not in nameparts[0] and
+            nameparts[0] != 'localhost'):
         # this is a docker index repository (e.g. samalba/hipache or ubuntu)
         validate_repository_name(image_name)
         return public_index_url(), image_name
@@ -387,9 +388,10 @@ def resolve_repository_name(image_name):
 
 
 def validate_repository_name(repository_name):
-    """this code mimics the logic of the docker client as of commit
-    dotcloud/docker@4a3b36f44309ff8e650be2cff74f3ec436353298
-    see registry/registry.go#L92
+    """this code mimics the logic of the docker client.
+
+    See commit dotcloud/docker@4a3b36f44309ff8e650be2cff74f3ec436353298
+    See registry/registry.go#L92
     """
     logger.debug("[_validate_repository_name] "
                  "repository_name={0}".format(repository_name))

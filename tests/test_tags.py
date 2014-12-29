@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 
+import base
 import mock
 import requests
-
-import base
 
 from docker_registry.core import compat
 json = compat.json
@@ -36,8 +35,7 @@ def mock_requests_get_private_registry(path, headers=None):
 
 
 def mock_requests_get_public_registry(path, headers=None):
-    """branch logic for DockerHub, as their endpoints are not the same.
-    """
+    """branch logic for DockerHub, as their endpoints are not the same."""
     resp = requests.Response()
     resp.status_code = 200
     resp._content_consumed = True
