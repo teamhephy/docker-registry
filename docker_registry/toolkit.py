@@ -360,7 +360,7 @@ def resolve_repository_name(image_name):
     See dotcloud/docker@4a3b36f44309ff8e650be2cff74f3ec436353298
     See registry/registry.go#L117
     """
-    logger.debug("[_resolve_repository_name] "
+    logger.debug("[resolve_repository_name] "
                  "image_name={0}".format(image_name))
 
     nameparts = image_name.split('/', 1)
@@ -393,7 +393,7 @@ def validate_repository_name(repository_name):
     See commit dotcloud/docker@4a3b36f44309ff8e650be2cff74f3ec436353298
     See registry/registry.go#L92
     """
-    logger.debug("[_validate_repository_name] "
+    logger.debug("[validate_repository_name] "
                  "repository_name={0}".format(repository_name))
     nameParts = repository_name.split('/', 2)
     if len(nameParts) < 2:
