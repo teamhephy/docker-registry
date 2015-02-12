@@ -24,6 +24,12 @@ store = storage.load()
 logger = logging.getLogger(__name__)
 RE_USER_AGENT = re.compile('([^\s/]+)/([^\s/]+)')
 RE_VALID_TAG = re.compile('^[\w][\w.-]{0,127}$')
+REQUEST_TIMEOUT = (5, 30)
+
+session = requests.Session()
+adapter = requests.adapters.HTTPAdapter(max_retries=5)
+session.mount('http://', adapter)
+session.mount('https://', adapter)
 
 
 @app.route('/v1/repositories/<path:repository>/properties', methods=['PUT'])
@@ -261,15 +267,16 @@ def _import_repository(src_image, namespace, repository):
     tags_url = '{0}/v1/repositories/{1}/tags'.format(
         src_index,
         src_repository)
-    tags_resp = requests.get(tags_url)
-    images_resp = requests.get(
+    tags_resp = session.get(tags_url, timeout=REQUEST_TIMEOUT)
+    images_resp = session.get(
         '{0}/v1/repositories/{1}/images'.format(
             src_index,
             src_repository
         ),
         # this is required if we are authenticating against the public index
         # because we need the token returned in the header to retrieve images
-        headers={'X-Docker-Token': 'true'}
+        headers={'X-Docker-Token': 'true'},
+        timeout=REQUEST_TIMEOUT
     )
 
     if images_resp and tags_resp:
@@ -292,10 +299,11 @@ def _import_repository(src_image, namespace, repository):
             else:
                 req_url = src_index
             images = [{'id': image} for image in json.loads(
-                requests.get('{0}/v1/images/{1}/ancestry'.format(
+                session.get('{0}/v1/images/{1}/ancestry'.format(
                     req_url,
                     tags[src_tag]),
-                    headers=headers
+                    headers=headers,
+                    timeout=REQUEST_TIMEOUT
                 ).content
             )]
 
@@ -346,18 +354,21 @@ def _import_image(source, image, headers=None):
         return
 
     # import layers
-    resp = requests.get('{0}/v1/images/{1}/layer'.format(source, image),
-                        headers=headers)
+    resp = session.get('{0}/v1/images/{1}/layer'.format(source, image),
+                       headers=headers,
+                       timeout=REQUEST_TIMEOUT)
     if resp:
         store.put_content(store.image_layer_path(image), resp.content)
     # import JSON
-    resp = requests.get('{0}/v1/images/{1}/json'.format(source, image),
-                        headers=headers)
+    resp = session.get('{0}/v1/images/{1}/json'.format(source, image),
+                       headers=headers,
+                       timeout=REQUEST_TIMEOUT)
     if resp:
         store.put_content(store.image_json_path(image), resp.content)
     # import ancestry
-    resp = requests.get('{0}/v1/images/{1}/ancestry'.format(source, image),
-                        headers=headers)
+    resp = session.get('{0}/v1/images/{1}/ancestry'.format(source, image),
+                       headers=headers,
+                       timeout=REQUEST_TIMEOUT)
     if resp:
         store.put_content(store.image_ancestry_path(image), resp.content)
 
