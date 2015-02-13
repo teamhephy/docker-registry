@@ -8,25 +8,25 @@ from docker_registry.core import compat
 json = compat.json
 
 
-def mock_requests_get_private_registry(path, headers=None):
+def mock_private_registry(adapter, request, *args, **kwargs):
     resp = requests.Response()
     resp.status_code = 200
     resp._content_consumed = True
-    # resp.headers['X-Fake-Source-Header'] = 'foobar'
-    if path.endswith('0146/layer'):
+
+    if request.url.endswith('0146/layer'):
         resp._content = "abcdef0123456789xxxxxx=-//"
-    elif path.endswith('0146/json'):
+    elif request.url.endswith('0146/json'):
         resp._content = ('{"id": "cafebabe0146","created":"2014-02-03T16:47:06'
                          '.615279788Z"}')
-    elif path.endswith('0146/ancestry'):
+    elif request.url.endswith('0146/ancestry'):
         resp._content = '["cafebabe0146"]'
-    elif path.endswith('test/tags'):
+    elif request.url.endswith('test/tags'):
         resp._content = '{"latest": "cafebabe0146", "0.1.2": "cafebabe0146"}'
-    elif path.endswith('test/tags/latest'):
+    elif request.url.endswith('test/tags/latest'):
         resp._content = 'cafebabe0146'
-    elif path.endswith('test/tags/0.1.2'):
+    elif request.url.endswith('test/tags/0.1.2'):
         resp._content = 'cafebabe0146'
-    elif path.endswith('test/images'):
+    elif request.url.endswith('test/images'):
         resp._content = '[{"id": "cafebabe0146"}]'
     else:
         resp.status_code = 404
@@ -34,32 +34,31 @@ def mock_requests_get_private_registry(path, headers=None):
     return resp
 
 
-def mock_requests_get_public_registry(path, headers=None):
+def mock_public_registry(adapter, request, *args, **kwargs):
     """branch logic for DockerHub, as their endpoints are not the same."""
     resp = requests.Response()
     resp.status_code = 200
     resp._content_consumed = True
-    # resp.headers['X-Fake-Source-Header'] = 'foobar'
-    if headers and headers.get('X-Docker-Token') == 'true':
+    if request.headers and request.headers.get('X-Docker-Token') == 'true':
         resp.headers['x-docker-token'] = 'foobar'
 
-    if path.endswith('asdfqwerty/layer'):
+    if request.url.endswith('asdfqwerty/layer'):
         resp._content = "abcdef0123456789xxxxxx=-//"
-    elif path.endswith('asdfqwerty/json'):
+    elif request.url.endswith('asdfqwerty/json'):
         resp._content = ('{"id": "asdfqwerty","created":"2014-02-03T16:47:06'
                          '.615279788Z"}')
-    elif path.endswith('asdfqwerty/ancestry'):
+    elif request.url.endswith('asdfqwerty/ancestry'):
         resp._content = '["asdfqwerty"]'
-    elif path.endswith('test/tags'):
+    elif request.url.endswith('test/tags'):
         resp._content = ('['
                          '{"layer": "asdf", "name": "latest"},'
                          '{"layer": "asdf", "name": "0.1.2"}'
                          ']')
-    elif path.endswith('test/tags/latest'):
+    elif request.url.endswith('test/tags/latest'):
         resp._content = '[{"pk": 1234567890, "id": "asdf"}]'
-    elif path.endswith('test/tags/0.1.2'):
+    elif request.url.endswith('test/tags/0.1.2'):
         resp._content = '[{"pk": 1234567890, "id": "asdf"}]'
-    elif path.endswith('test/images'):
+    elif request.url.endswith('test/images'):
         resp._content = '[{"checksum": "", "id": "asdfqwerty"}]'
     else:
         resp.status_code = 404
@@ -190,7 +189,7 @@ class TestTags(base.TestCase):
         repos_name = '{0}%$_-test'.format(self.gen_random_string(5))
         self.test_simple(repos_name)
 
-    @mock.patch('requests.get', mock_requests_get_private_registry)
+    @mock.patch('requests.adapters.HTTPAdapter.send', mock_private_registry)
     def test_import_repository_from_private_registry(self):
         data = {
             'src': 'example.com/othernamespace/test',
@@ -232,7 +231,7 @@ class TestTags(base.TestCase):
             [{"id": "cafebabe0146"}]
         )
 
-    @mock.patch('requests.get', mock_requests_get_private_registry)
+    @mock.patch('requests.adapters.HTTPAdapter.send', mock_private_registry)
     def test_import_repository_tag_from_private_registry(self):
         data = {
             'src': 'example.com/othernamespace/test:latest',
@@ -274,7 +273,7 @@ class TestTags(base.TestCase):
             [{"id": "cafebabe0146"}]
         )
 
-    @mock.patch('requests.get', mock_requests_get_public_registry)
+    @mock.patch('requests.adapters.HTTPAdapter.send', mock_public_registry)
     def test_import_repository_from_public_index(self):
         data = {
             'src': 'testing3/test',
@@ -316,7 +315,7 @@ class TestTags(base.TestCase):
             [{"id": "asdfqwerty"}]
         )
 
-    @mock.patch('requests.get', mock_requests_get_public_registry)
+    @mock.patch('requests.adapters.HTTPAdapter.send', mock_public_registry)
     def test_import_repository_tag_from_public_index(self):
         data = {
             'src': 'testing3/test:latest',
