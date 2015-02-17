@@ -408,7 +408,7 @@ def delete_repository(namespace, repository):
     else:
         try:
             for tag_name, tag_content in get_tags(
-                    namespace=namespace, repository=repository):
+                    namespace=namespace, repository=repository).items():
                 delete_tag(
                     namespace=namespace, repository=repository, tag=tag_name)
             # TODO(wking): remove images, but may need refcounting
