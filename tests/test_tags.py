@@ -13,21 +13,22 @@ def mock_private_registry(adapter, request, *args, **kwargs):
     resp.status_code = 200
     resp._content_consumed = True
 
-    if request.url.endswith('0146/layer'):
+    if request.url.endswith('4567/layer'):
         resp._content = "abcdef0123456789xxxxxx=-//"
-    elif request.url.endswith('0146/json'):
-        resp._content = ('{"id": "cafebabe0146","created":"2014-02-03T16:47:06'
-                         '.615279788Z"}')
-    elif request.url.endswith('0146/ancestry'):
-        resp._content = '["cafebabe0146"]'
+    elif request.url.endswith('4567/json'):
+        resp._content = ('{"id": "cafebabe01234567", '
+                         '"created": "2014-02-03T16:47:06.615279788Z"}')
+    elif request.url.endswith('4567/ancestry'):
+        resp._content = '["cafebabe01234567"]'
     elif request.url.endswith('test/tags'):
-        resp._content = '{"latest": "cafebabe0146", "0.1.2": "cafebabe0146"}'
+        resp._content = \
+            '{"latest": "cafebabe01234567", "0.1.2": "cafebabe01234567"}'
     elif request.url.endswith('test/tags/latest'):
-        resp._content = 'cafebabe0146'
+        resp._content = 'cafebabe01234567'
     elif request.url.endswith('test/tags/0.1.2'):
-        resp._content = 'cafebabe0146'
+        resp._content = 'cafebabe01234567'
     elif request.url.endswith('test/images'):
-        resp._content = '[{"id": "cafebabe0146"}]'
+        resp._content = '[{"id": "cafebabe01234567"}]'
     else:
         resp.status_code = 404
 
@@ -42,24 +43,24 @@ def mock_public_registry(adapter, request, *args, **kwargs):
     if request.headers and request.headers.get('X-Docker-Token') == 'true':
         resp.headers['x-docker-token'] = 'foobar'
 
-    if request.url.endswith('asdfqwerty/layer'):
+    if request.url.endswith('deadbeef76543210/layer'):
         resp._content = "abcdef0123456789xxxxxx=-//"
-    elif request.url.endswith('asdfqwerty/json'):
-        resp._content = ('{"id": "asdfqwerty","created":"2014-02-03T16:47:06'
-                         '.615279788Z"}')
-    elif request.url.endswith('asdfqwerty/ancestry'):
-        resp._content = '["asdfqwerty"]'
+    elif request.url.endswith('deadbeef76543210/json'):
+        resp._content = ('{"id": "deadbeef76543210", '
+                         '"created": "2014-02-03T16:47:06.615279788Z"}')
+    elif request.url.endswith('deadbeef76543210/ancestry'):
+        resp._content = '["deadbeef76543210"]'
     elif request.url.endswith('test/tags'):
         resp._content = ('['
-                         '{"layer": "asdf", "name": "latest"},'
-                         '{"layer": "asdf", "name": "0.1.2"}'
+                         '{"layer": "deadbeef76543210", "name": "latest"},'
+                         '{"layer": "deadbeef76543210", "name": "0.1.2"}'
                          ']')
     elif request.url.endswith('test/tags/latest'):
-        resp._content = '[{"pk": 1234567890, "id": "asdf"}]'
+        resp._content = '[{"pk": 1234567890, "id": "deadbeef76543210"}]'
     elif request.url.endswith('test/tags/0.1.2'):
-        resp._content = '[{"pk": 1234567890, "id": "asdf"}]'
+        resp._content = '[{"pk": 1234567890, "id": "deadbeef76543210"}]'
     elif request.url.endswith('test/images'):
-        resp._content = '[{"checksum": "", "id": "asdfqwerty"}]'
+        resp._content = '[{"checksum": "", "id": "deadbeef76543210"}]'
     else:
         resp.status_code = 404
 
@@ -234,37 +235,38 @@ class TestTags(base.TestCase):
                                      data=data)
         self.assertEqual(resp.status_code, 200)
         # test that the images were imported
-        resp = self.http_client.get('/v1/images/cafebabe0146/layer')
+        resp = self.http_client.get('/v1/images/cafebabe01234567/layer')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             resp.data,
             "abcdef0123456789xxxxxx=-//"
         )
-        resp = self.http_client.get('/v1/images/cafebabe0146/json')
+        resp = self.http_client.get('/v1/images/cafebabe01234567/json')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             resp.data,
-            '{"id": "cafebabe0146","created":"2014-02-03T16:47:06.615279788Z"}'
+            '{"id": "cafebabe01234567", '
+            '"created": "2014-02-03T16:47:06.615279788Z"}'
         )
-        resp = self.http_client.get('/v1/images/cafebabe0146/ancestry')
+        resp = self.http_client.get('/v1/images/cafebabe01234567/ancestry')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             resp.data,
-            '["cafebabe0146"]'
+            '["cafebabe01234567"]'
         )
         # test that the tags were imported
         resp = self.http_client.get('/v1/repositories/testing2/test/tags')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             json.loads(resp.data),
-            {"latest": "cafebabe0146", "0.1.2": "cafebabe0146"}
+            {"latest": "cafebabe01234567", "0.1.2": "cafebabe01234567"}
         )
         # test that index images were imported
         resp = self.http_client.get('/v1/repositories/testing2/test/images')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             json.loads(resp.data),
-            [{"id": "cafebabe0146"}]
+            [{"id": "cafebabe01234567"}]
         )
 
     @mock.patch('requests.adapters.HTTPAdapter.send', mock_private_registry)
@@ -276,37 +278,38 @@ class TestTags(base.TestCase):
                                      data=data)
         self.assertEqual(resp.status_code, 200)
         # test that the images were imported
-        resp = self.http_client.get('/v1/images/cafebabe0146/layer')
+        resp = self.http_client.get('/v1/images/cafebabe01234567/layer')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             resp.data,
             "abcdef0123456789xxxxxx=-//"
         )
-        resp = self.http_client.get('/v1/images/cafebabe0146/json')
+        resp = self.http_client.get('/v1/images/cafebabe01234567/json')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             resp.data,
-            '{"id": "cafebabe0146","created":"2014-02-03T16:47:06.615279788Z"}'
+            '{"id": "cafebabe01234567", '
+            '"created": "2014-02-03T16:47:06.615279788Z"}'
         )
-        resp = self.http_client.get('/v1/images/cafebabe0146/ancestry')
+        resp = self.http_client.get('/v1/images/cafebabe01234567/ancestry')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             resp.data,
-            '["cafebabe0146"]'
+            '["cafebabe01234567"]'
         )
         # test that the tags were imported
         resp = self.http_client.get('/v1/repositories/testing3/test/tags')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             json.loads(resp.data),
-            {"latest": "cafebabe0146"}
+            {"latest": "cafebabe01234567"}
         )
         # test that index images were imported
         resp = self.http_client.get('/v1/repositories/testing3/test/images')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             json.loads(resp.data),
-            [{"id": "cafebabe0146"}]
+            [{"id": "cafebabe01234567"}]
         )
 
     @mock.patch('requests.adapters.HTTPAdapter.send', mock_public_registry)
@@ -318,37 +321,38 @@ class TestTags(base.TestCase):
                                      data=data)
         self.assertEqual(resp.status_code, 200)
         # test that the images were imported
-        resp = self.http_client.get('/v1/images/asdfqwerty/layer')
+        resp = self.http_client.get('/v1/images/deadbeef76543210/layer')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             resp.data,
             "abcdef0123456789xxxxxx=-//"
         )
-        resp = self.http_client.get('/v1/images/asdfqwerty/json')
+        resp = self.http_client.get('/v1/images/deadbeef76543210/json')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             resp.data,
-            '{"id": "asdfqwerty","created":"2014-02-03T16:47:06.615279788Z"}'
+            '{"id": "deadbeef76543210", '
+            '"created": "2014-02-03T16:47:06.615279788Z"}'
         )
-        resp = self.http_client.get('/v1/images/asdfqwerty/ancestry')
+        resp = self.http_client.get('/v1/images/deadbeef76543210/ancestry')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             resp.data,
-            '["asdfqwerty"]'
+            '["deadbeef76543210"]'
         )
         # test that the tags were imported
         resp = self.http_client.get('/v1/repositories/testing4/test/tags')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             json.loads(resp.data),
-            {"latest": "asdfqwerty", "0.1.2": "asdfqwerty"}
+            {"latest": "deadbeef76543210", "0.1.2": "deadbeef76543210"}
         )
         # test that index images were imported
         resp = self.http_client.get('/v1/repositories/testing4/test/images')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             json.loads(resp.data),
-            [{"id": "asdfqwerty"}]
+            [{"id": "deadbeef76543210"}]
         )
 
     @mock.patch('requests.adapters.HTTPAdapter.send', mock_public_registry)
@@ -360,35 +364,36 @@ class TestTags(base.TestCase):
                                      data=data)
         self.assertEqual(resp.status_code, 200)
         # test that the images were imported
-        resp = self.http_client.get('/v1/images/asdfqwerty/layer')
+        resp = self.http_client.get('/v1/images/deadbeef76543210/layer')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             resp.data,
             "abcdef0123456789xxxxxx=-//"
         )
-        resp = self.http_client.get('/v1/images/asdfqwerty/json')
+        resp = self.http_client.get('/v1/images/deadbeef76543210/json')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             resp.data,
-            '{"id": "asdfqwerty","created":"2014-02-03T16:47:06.615279788Z"}'
+            '{"id": "deadbeef76543210", '
+            '"created": "2014-02-03T16:47:06.615279788Z"}'
         )
-        resp = self.http_client.get('/v1/images/asdfqwerty/ancestry')
+        resp = self.http_client.get('/v1/images/deadbeef76543210/ancestry')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             resp.data,
-            '["asdfqwerty"]'
+            '["deadbeef76543210"]'
         )
         # test that the tags were imported
         resp = self.http_client.get('/v1/repositories/testing5/test/tags')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             json.loads(resp.data),
-            {"latest": "asdfqwerty"}
+            {"latest": "deadbeef76543210"}
         )
         # test that index images were imported
         resp = self.http_client.get('/v1/repositories/testing5/test/images')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
             json.loads(resp.data),
-            [{"id": "asdfqwerty"}]
+            [{"id": "deadbeef76543210"}]
         )
