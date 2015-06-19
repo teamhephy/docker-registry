@@ -6,7 +6,7 @@ WARNING
 Docker-Registry
 ===============
 
-[![Build Status](https://travis-ci.org/docker/docker-registry.png)](https://travis-ci.org/docker/docker-registry)
+[![Build Status](https://travis-ci.org/deis/docker-registry.svg?branch=new-repository-import-master)](https://travis-ci.org/deis/docker-registry)
 
 About this document
 ===================
@@ -16,7 +16,7 @@ As the documentation evolves with different registry versions, be sure that befo
  * check which version of the registry you are running
  * switch to the corresponding tag to access the README that matches your product version
 
-The stable, released version is the [0.9.1 tag](https://github.com/docker/docker-registry/tree/0.9.1).
+The stable, released version is the [1.0.0-deis tag](https://github.com/deis/docker-registry/tree/1.0.0-deis).
 
 Please also have a quick look at the [FAQ](FAQ.md) before reporting bugs.
 
@@ -371,4 +371,3 @@ Read [contributing](CONTRIBUTING.md)
 [search-endpoint]: http://docs.docker.com/reference/api/docker-io_api/#search
 [SQLAlchemy]: http://docs.sqlalchemy.org/
 [create_engine]: http://docs.sqlalchemy.org/en/latest/core/engines.html#sqlalchemy.create_engine
-
